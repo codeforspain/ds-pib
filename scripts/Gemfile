@@ -1,0 +1,6 @@
+source "https://rubygems.org"
+
+gem "nokogiri"
+gem "ine-places", require: 'ine/places/places'
+gem "ruby-px", require: "pc-axis/dataset"
+gem "byebug"
