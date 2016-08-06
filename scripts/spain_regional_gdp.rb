@@ -1,4 +1,5 @@
 require 'rubygems'
+require 'optparse'
 require 'bundler'
 require 'open-uri'
 require 'csv'
@@ -6,6 +7,15 @@ require 'json'
 
 Bundler.require
 
+# Procesar parámetros:
+options = {}
+OptionParser.new do |opt|
+  opt.on("--ramas-actividad", "", "Incluir información de cada rama de actividad") do |v| 
+    options[:ramas] = v
+  end
+end.parse!
+
+# URL de la que descargamos los datos en bruto del PIB:
 URL = "http://www.ine.es/jaxi/files/_px/es/px/t35/p010/base2010/l0/01001.px?nocab=1"
 
 DICTIONARY = {
@@ -26,7 +36,7 @@ end
 
 def dump_data_to_json(data)
   file_path = File.expand_path('../data/spain_regional_gdp.json', File.dirname(__FILE__))
-  puts " - Writting file #{file_path}"
+  puts " - Escribiendo fichero: #{file_path}"
 
   File.open(file_path, "wb") do |fd|
     fd.write(JSON.dump(data))
@@ -34,7 +44,7 @@ def dump_data_to_json(data)
 end
 
 puts
-puts "Downloading GDP data..."
+puts "Descargando datos de PIB..."
 
 file_path = download(URL)
 
@@ -58,16 +68,18 @@ dataset.dimension('Comunidades y ciudades autónomas').each do |raw_autonomous_r
   end
   data[normalized_region] = {}
   dataset.dimension("Ramas de actividad").each do |branch|
-    dataset.dimension("Magnitud").each do |measure|
-      dataset.dimension("periodo").each do |raw_year|
-        value = dataset.data('Comunidades y ciudades autónomas' => raw_autonomous_region, 'Ramas de actividad' => branch, 'Magnitud' => measure, 'periodo' => raw_year)
-        if !data[normalized_region].has_key?(branch)
-          data[normalized_region][branch] = {}
+    if branch == "PRODUCTO INTERIOR BRUTO A PRECIOS DE MERCADO" or options[:ramas]
+      dataset.dimension("Magnitud").each do |measure|
+        dataset.dimension("periodo").each do |raw_year|
+          value = dataset.data('Comunidades y ciudades autónomas' => raw_autonomous_region, 'Ramas de actividad' => branch, 'Magnitud' => measure, 'periodo' => raw_year)
+          if !data[normalized_region].has_key?(branch)
+            data[normalized_region][branch] = {}
+          end
+          if !data[normalized_region][branch].has_key?(measure)
+            data[normalized_region][branch][measure] = {}
+          end
+          data[normalized_region][branch][measure][raw_year] = value.to_f
         end
-        if !data[normalized_region][branch].has_key?(measure)
-          data[normalized_region][branch][measure] = {}
-        end
-        data[normalized_region][branch][measure][raw_year] = value.to_f
       end
     end
   end
@@ -75,5 +87,5 @@ end
 
 dump_data_to_json data
 
-puts " - Done!"
+puts " - Completado!"
 puts
